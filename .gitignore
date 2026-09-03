@@ -1,0 +1,19 @@
+# Local embedded Python runtime
+eml_attachment_tool/python/*
+!eml_attachment_tool/python/PLACE_PYTHON_HERE.txt
+
+# Runtime output
+_EML_OUTPUT/
+**/_EML_OUTPUT/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.log
+*.tmp
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

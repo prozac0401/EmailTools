@@ -1,0 +1,2 @@
+Bundled library: pypdf 5.9.0
+License: BSD-3-Clause (see THIRD_PARTY_LICENSES)

@@ -1,0 +1,8 @@
+Python runtime note
+===================
+This tool is designed to use the official CPython Windows Embeddable Package.
+Python is distributed under the Python Software Foundation License.
+The setup script downloads the package from python.org, or can consume the
+same official ZIP when it is pre-staged next to the script.
+
+Runtime target in this package: CPython 3.13.15 x64 (Windows embeddable).
