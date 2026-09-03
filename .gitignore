@@ -5,6 +5,10 @@ eml_attachment_tool/python/*
 # Runtime output
 _EML_OUTPUT/
 **/_EML_OUTPUT/
+EML_Table_Result.xlsx
+**/EML_Table_Result.xlsx
+EML_Table_Result_errors.log
+**/EML_Table_Result_errors.log
 
 # Python caches
 __pycache__/

@@ -50,6 +50,28 @@ PDF 처리를 위한 `pypdf 5.9.0`은 `vendor/`에 포함되어 있어 사용자
 본문 또는 첨부파일 내용 분석이 제한될 수 있습니다. 추출된 실행 파일이나
 스크립트는 실행하지 않으며 데이터로만 저장합니다.
 
+### EML Table to Excel
+
+`eml_table_to_excel/`은 여러 EML의 메일 본문 표와 DOCX 첨부파일 내부 표를
+읽고, 항목명을 자동으로 Excel 컬럼으로 매핑하여 하나의 Worksheet로 통합하는
+전용 도구입니다.
+
+- 하나의 EML을 Excel의 한 행으로 변환
+- HTML 메일 표와 DOCX 표의 `항목명 → 값` 자동 추출
+- 새로운 항목을 최초 등장 순서대로 새 컬럼에 자동 추가
+- 중복되거나 충돌하는 값은 덮어쓰지 않고 함께 보존
+- 결과: `EML_Table_Result.xlsx`, Worksheet `Result`
+- 기존 Windows Embedded Python을 공유하고 bundled `openpyxl` 사용
+
+실행:
+
+```text
+eml_table_to_excel\run.bat
+```
+
+EML 폴더를 `run.bat`에 Drag & Drop할 수도 있습니다. 자세한 내용은
+[`eml_table_to_excel/README.md`](eml_table_to_excel/README.md)를 참고하세요.
+
 ## Portable package
 
 자동 구성 가능한 포터블 배포본은
@@ -58,7 +80,8 @@ PDF 처리를 위한 `pypdf 5.9.0`은 `vendor/`에 포함되어 있어 사용자
 ## 테스트
 
 테스트는 실제 개인 메일을 사용하지 않고 실행 시 임시 폴더에 합성 EML과
-DOCX / XLSX / PPTX / PDF 데이터를 생성합니다.
+DOCX / XLSX / PPTX / PDF 데이터를 생성합니다. EML Table to Excel 테스트도
+합성 HTML 표와 DOCX 표만 사용합니다.
 
 ```powershell
 python -m unittest discover -s .\tests -v
@@ -70,4 +93,5 @@ Python 구성이 끝난 뒤에는 다음 명령으로 같은 테스트를 실행
 
 ```powershell
 .\eml_attachment_tool\python\python.exe -X utf8 .\tests\test_app.py -v
+.\eml_attachment_tool\python\python.exe -X utf8 .\tests\test_table_to_excel.py -v
 ```

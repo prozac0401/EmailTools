@@ -395,24 +395,8 @@ def attachment_parts(msg: Message) -> Iterable[Message]:
             yield part
 
 
-@dataclass
-class AttachmentRecord:
-    source_eml: str
-    attachment_name: str
-    saved_path: str
-    size: int
-    content_type: str
-    text_status: str
-    text_path: str
-
-
-def save_attachment(part: Message, attachments_dir: Path, index: int) -> Path:
-    target = safe_attachment_path(
-        attachments_dir,
-        part.get_filename(),
-        f"attachment_{index:03d}",
-    )
-
+def attachment_bytes(part: Message) -> bytes:
+    """Decode an attachment payload without writing it to disk."""
     if part.get_content_type().lower() == "message/rfc822":
         payload = part.get_payload()
         data = b""
@@ -434,13 +418,37 @@ def save_attachment(part: Message, attachments_dir: Path, index: int) -> Path:
                 data = nested.as_bytes(policy=policy.default)
         else:
             data = part.get_payload(decode=True) or b""
+        return data
+
+    data = part.get_payload(decode=True)
+    if data is not None:
+        return data
+    raw = part.get_payload()
+    return raw.encode("utf-8", errors="replace") if isinstance(raw, str) else b""
+
+
+@dataclass
+class AttachmentRecord:
+    source_eml: str
+    attachment_name: str
+    saved_path: str
+    size: int
+    content_type: str
+    text_status: str
+    text_path: str
+
+
+def save_attachment(part: Message, attachments_dir: Path, index: int) -> Path:
+    target = safe_attachment_path(
+        attachments_dir,
+        part.get_filename(),
+        f"attachment_{index:03d}",
+    )
+
+    data = attachment_bytes(part)
+    if part.get_content_type().lower() == "message/rfc822":
         if target.suffix.lower() != ".eml":
             target = unique_path(target.with_suffix(target.suffix + ".eml" if target.suffix else ".eml"))
-    else:
-        data = part.get_payload(decode=True)
-        if data is None:
-            raw = part.get_payload()
-            data = raw.encode("utf-8", errors="replace") if isinstance(raw, str) else b""
 
     target.write_bytes(data)
     return target
