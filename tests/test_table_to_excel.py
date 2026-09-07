@@ -16,7 +16,7 @@ from xml.sax.saxutils import escape
 REPO_ROOT = Path(__file__).resolve().parents[1]
 APP_PATH = REPO_ROOT / "eml_table_to_excel" / "app.py"
 RUN_BAT = REPO_ROOT / "eml_table_to_excel" / "run.bat"
-EMBEDDED_PYTHON = REPO_ROOT / "eml_attachment_tool" / "python" / "python.exe"
+EMBEDDED_PYTHON = REPO_ROOT / "runtime" / "python" / "python.exe"
 
 SPEC = importlib.util.spec_from_file_location("eml_table_to_excel_app", APP_PATH)
 assert SPEC and SPEC.loader
@@ -259,7 +259,7 @@ class EmlTableToExcelTests(unittest.TestCase):
         )
         working_dir = self.root / "unrelated cwd"
         working_dir.mkdir()
-        command = f'cmd.exe /d /c call "{RUN_BAT}" "{input_root}"'
+        command = f'cmd.exe /d /c call "{RUN_BAT}" --cli "{input_root}"'
         result = subprocess.run(
             command,
             cwd=working_dir,
@@ -287,7 +287,7 @@ class EmlTableToExcelTests(unittest.TestCase):
         )
         working_dir = self.root / "another cwd"
         working_dir.mkdir()
-        command = f'cmd.exe /d /c call "{RUN_BAT}"'
+        command = f'cmd.exe /d /c call "{RUN_BAT}" --cli'
         result = subprocess.run(
             command,
             cwd=working_dir,

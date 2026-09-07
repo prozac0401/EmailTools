@@ -1,6 +1,11 @@
 # Local embedded Python runtime
 eml_attachment_tool/python/*
 !eml_attachment_tool/python/PLACE_PYTHON_HERE.txt
+runtime/python/*
+!runtime/python/PLACE_PYTHON_HERE.txt
+runtime/.python-*/
+runtime/.setup-lock/
+python-*-embed-*.zip
 
 # Runtime output
 _EML_OUTPUT/
@@ -21,3 +26,6 @@ __pycache__/
 Thumbs.db
 .vscode/
 .idea/
+
+# Private manual and presentation build artifacts
+.manual-build/

@@ -15,7 +15,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 APP_PATH = REPO_ROOT / "eml_attachment_tool" / "app.py"
 RUN_BAT = REPO_ROOT / "eml_attachment_tool" / "run.bat"
-EMBEDDED_PYTHON = REPO_ROOT / "eml_attachment_tool" / "python" / "python.exe"
+EMBEDDED_PYTHON = REPO_ROOT / "runtime" / "python" / "python.exe"
 SPEC = importlib.util.spec_from_file_location("eml_attachment_tool_app", APP_PATH)
 assert SPEC and SPEC.loader
 app = importlib.util.module_from_spec(SPEC)

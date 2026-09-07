@@ -1,0 +1,4 @@
+# Bundled in vendor/. End users do not need pip.
+pypdf==5.9.0
+openpyxl==3.1.5
+et_xmlfile==2.0.0
