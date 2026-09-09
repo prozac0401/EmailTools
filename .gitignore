@@ -5,6 +5,10 @@ runtime/python/*
 !runtime/python/PLACE_PYTHON_HERE.txt
 runtime/.python-*/
 runtime/.setup-lock/
+runtime/desktop/
+runtime/wheels/
+runtime/.desktop-*/
+.desktop-test/
 python-*-embed-*.zip
 
 # Runtime output

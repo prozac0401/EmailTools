@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from emailtools.ui.server import create_demo
+from emailtools import __version__
 from openpyxl import load_workbook
 
 
@@ -47,7 +48,7 @@ class PortableDeploymentTests(unittest.TestCase):
         self.assertFalse((self.deploy / "eml_attachment_tool").exists())
         result = self.command("--version")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("EmailTools 2.0.0", result.stdout)
+        self.assertIn(f"EmailTools {__version__}", result.stdout)
         self.assertIn(str(self.deploy / "runtime/python/python.exe"), result.stdout)
 
     def test_unified_cli_options_and_repeated_runs_from_another_working_directory(self):

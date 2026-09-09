@@ -1,0 +1,26 @@
+EmailTools 2.1 includes unmodified PySide6 Essentials and Shiboken6 6.10.2
+binary wheels, including Qt libraries. Copyright belongs to The Qt Company
+Ltd. and the respective contributors and third-party authors.
+
+Wheel metadata declares LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only.
+Accompanying LGPL and GPL texts are provided in this directory.
+Original package metadata and commercial-license notices are retained in
+runtime/desktop/*dist-info. EmailTools does not use a commercial Qt license.
+
+Libraries are loaded dynamically from runtime/desktop. The application
+Python source and DLLs are distributed in replaceable form. No technical
+restriction is placed on replacing these libraries or debugging modifications.
+
+Exact wheel URLs, filenames and SHA256: requirements-desktop.lock.json
+
+Upstream Qt for Python 6.10.2 source:
+https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.10.2-src/
+https://code.qt.io/cgit/pyside/pyside-setup.git/?h=6.10.2
+
+Upstream Qt 6.10.2 source:
+https://download.qt.io/official_releases/qt/6.10/6.10.2/single/
+https://code.qt.io/cgit/qt/qtbase.git/?h=v6.10.2
+
+Upstream licensing and third-party component notices:
+https://doc.qt.io/qtforpython-6/licenses.html
+https://doc.qt.io/qt-6/licenses-used-in-qt.html

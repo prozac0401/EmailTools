@@ -1,5 +1,32 @@
 # 검증 방법
 
+## 2.1 Windows 앱 · 2026-09-10
+
+기존 회귀를 포함한 Python 테스트 **60개 통과**. Windows Qt smoke 검사 **7개 시나리오 통과**.
+기본 글꼴을 본문 13px·입력 14px로 조정한 뒤 같은 앱 검사도 통과했다.
+
+```bat
+runtime\python\python.exe -X utf8 -m unittest discover -s tests -v
+run.bat --desktop-smoke .desktop-test
+runtime\python\python.exe -X utf8 tools\benchmark_desktop.py
+runtime\python\python.exe -X utf8 tools\build_portable.py
+```
+
+새 검증은 목록 모드의 본문/첨부 미디코딩, 목록 XLSX, 반복/출처/동일 EML 집계,
+명단형 표의 추천 제외와 수동 해석, HTML 병합·중첩의 물리 셀 소유,
+여러 입력, 실제 단계 수량, 저장 취소 시 staging 정리, 수식 모양의 문자열을 다룬다.
+
+Qt smoke는 실제 이벤트 루프에서 분석·저장을 실행하고 후보 추가, Qt drag 이벤트의 MIME·버튼 이미지·삽입,
+키보드·머리글 순서 변경, 필터 후 선택 보존, 미리보기와 Excel 전체 값 일치,
+1000×720 큰 글자 배치와 HTTP 서버 미사용을 검사한다. `docs/desktop-images`는 Windows Qt 캡처다.
+외부 Computer Use 서비스가 연결되지 않아 OS 마우스·물리 터치 조작은 검증하지 않았다.
+
+성능: 합성 HTML 메일 1,000개 / 후보 1,000개 / 등장 100,000개에서 예열 후 조회 p95 **4.763ms**,
+Python 할당 최고치 **119.37 MiB**. 초기 분석은 메모리 계측을 켠 상태에서 **94.832초**였다.
+이는 Python 메모리 계측 오버헤드를 포함하며 실사용 처리 시간 보장이 아니다. 장비·조건은 `desktop-benchmark.json`에 기록했다.
+
+## 2.0 웹 UI의 기존 검증 기록
+
 모든 데이터는 임시 폴더에서 생성한 합성 EML/DOCX/XLSX/PPTX/PDF다. 개인 메일을 사용하지 않는다.
 
 2026-09-08 통합 검증: Python 자동 테스트 **51개 통과**, 브라우저 회귀 테스트 통과.

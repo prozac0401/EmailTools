@@ -1,5 +1,6 @@
 from __future__ import annotations
 import base64
+import hashlib
 import html
 import os
 import quopri
@@ -44,7 +45,10 @@ def find_eml_targets(target: Path, is_cancelled: Callable[[], bool] | None = Non
 
 
 def read_message(path: Path) -> Message:
-    return BytesParser(policy=policy.default).parsebytes(path.read_bytes())
+    data = path.read_bytes()
+    msg = BytesParser(policy=policy.default).parsebytes(data)
+    msg._emailtools_hash = hashlib.sha256(data).hexdigest()
+    return msg
 
 
 def body_parts(msg: Message) -> Iterable[Message]:

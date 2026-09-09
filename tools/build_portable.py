@@ -12,11 +12,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from emailtools import __version__
-from emailtools.ui.server import create_demo
+from emailtools.demo import create_demo
 
 INCLUDE = ("run.bat", "main.py", "setup_runtime.bat", "requirements.txt", "README.md",
+           "setup_desktop.bat", "requirements-desktop.lock.json", "runtime/desktop",
            "runtime/python", "vendor", "THIRD_PARTY_LICENSES", "emailtools", "docs", "tests",
-           "tools/build_portable.py", "eml_attachment_tool", "eml_table_to_excel")
+           "tools/build_portable.py", "tools/setup_desktop.py", "tools/benchmark_desktop.py", "eml_attachment_tool", "eml_table_to_excel")
 
 
 def files_to_package() -> list[Path]:
@@ -62,6 +63,17 @@ def verify_package(archive_path: Path) -> None:
                 or len(list(job.glob("mails/*/text/*.txt"))) != 2
                 or not (job / "tables/EML_Table_Result.xlsx").is_file()):
             raise RuntimeError("배포본 결과 구성 검사 실패")
+        smoke = temporary / "desktop-smoke"
+        command = f'cmd.exe /d /c call "{program / "run.bat"}" --desktop-smoke "{smoke}"'
+        result = subprocess.run(command, cwd=temporary, env={**os.environ, "EMAILTOOLS_NO_PAUSE": "1"},
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+            creationflags=subprocess.CREATE_NO_WINDOW)
+        if result.returncode:
+            raise RuntimeError(f"배포본 네이티브 UI 검사 실패:\n{result.stdout}\n{result.stderr}")
+        import json
+        report = json.loads((smoke / "smoke-report.json").read_text(encoding="utf-8"))
+        if report["error"] or len(report["checks"]) < 6:
+            raise RuntimeError("배포본 UI 검증 보고서 실패")
 
 
 def main() -> int:

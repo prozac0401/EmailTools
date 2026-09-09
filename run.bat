@@ -9,6 +9,23 @@ if not exist "%PYTHON_EXE%" (
     call "%~dp0setup_runtime.bat"
     if errorlevel 1 goto setup_failed
 )
+if /I "%~1"=="--cli" goto console
+if /I "%~1"=="--version" goto console
+if /I "%~1"=="--legacy-attachments" goto console
+if /I "%~1"=="--legacy-tables" goto console
+if /I "%~1"=="--web" goto console
+if /I "%~1"=="--no-browser" goto console
+if not exist "%~dp0runtime\desktop\PySide6\QtWidgets.pyd" (
+    call "%~dp0setup_desktop.bat"
+    if errorlevel 1 goto setup_failed
+)
+if /I "%~1"=="--desktop-smoke" goto console
+start "" "%~dp0runtime\python\pythonw.exe" -X utf8 "%~dp0main.py" %*
+set "RC=%ERRORLEVEL%"
+popd
+exit /b %RC%
+
+:console
 echo [Runtime] "%PYTHON_EXE%"
 "%PYTHON_EXE%" -X utf8 "%~dp0main.py" %*
 set "RC=%ERRORLEVEL%"

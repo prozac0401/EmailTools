@@ -13,6 +13,8 @@ class ProcessingOptions:
     extract_tables: bool = True
     email_tables: bool = True
     docx_tables: bool = True
+    mail_index: bool = False
+    attachment_index: bool = False
 
     @classmethod
     def from_dict(cls, value: object = None) -> ProcessingOptions:
@@ -28,7 +30,7 @@ class ProcessingOptions:
         return options
 
     def validate(self) -> None:
-        if not any((self.save_mail, self.save_attachments, self.extract_text, self.extract_tables)):
+        if not any((self.mail_index, self.save_mail, self.save_attachments, self.extract_text, self.extract_tables)):
             raise ValueError("실행할 기능을 하나 이상 선택해 주세요.")
         if self.extract_tables and not (self.email_tables or self.docx_tables):
             raise ValueError("표 추출 대상을 하나 이상 선택해 주세요: 메일 본문 또는 DOCX.")
@@ -41,11 +43,12 @@ class ProcessingOptions:
 class AttachmentResult:
     name: str
     content_type: str
-    size: int
+    size: int | None
     payload_path: Path | None = None
     text: str | None = None
     text_status: str = "not requested"
     error: str = ""
+    table_status: str = "not requested"
 
 
 @dataclass
@@ -53,6 +56,8 @@ class MailResult:
     record: dict[str, str]
     body: str = ""
     attachments: list[AttachmentResult] = field(default_factory=list)
+    source_path: Path | None = None
+    content_hash: str = ""
 
 
 @dataclass
@@ -65,6 +70,7 @@ class AnalysisResult:
     success: int
     warnings: int
     failures: int
+    catalog: object = None
 
     @property
     def attachment_count(self) -> int:

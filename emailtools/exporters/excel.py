@@ -47,6 +47,7 @@ def write_excel(
     columns: list[str],
     output_path: Path,
     logger: logging.Logger,
+    *, progress=None, is_cancelled=None,
 ) -> None:
     workbook = Workbook()
     worksheet = workbook.active
@@ -55,6 +56,9 @@ def write_excel(
 
     worksheet.append(columns)
     for row_number, record in enumerate(records, 2):
+        if is_cancelled and is_cancelled():
+            workbook.close()
+            raise InterruptedError("Excel 저장을 중지했습니다.")
         worksheet.append(
             [
                 safe_excel_value(
@@ -65,6 +69,8 @@ def write_excel(
                 for column in columns
             ]
         )
+        if progress and (row_number % 50 == 0 or row_number == len(records) + 1):
+            progress(row_number - 1, len(records))
 
     last_column = get_column_letter(len(columns))
     last_row = max(1, len(records) + 1)
@@ -107,6 +113,9 @@ def write_excel(
         worksheet.column_dimensions[get_column_letter(column_index)].width = width
 
     for row_index in range(2, last_row + 1):
+        if is_cancelled and is_cancelled():
+            workbook.close()
+            raise InterruptedError("Excel 저장을 중지했습니다.")
         estimated_lines = 1
         for column_index in range(1, len(columns) + 1):
             value = str(worksheet.cell(row=row_index, column=column_index).value or "")
