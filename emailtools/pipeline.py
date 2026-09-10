@@ -84,8 +84,13 @@ def analyze(source: Path, options: ProcessingOptions, spool: Path, logger: loggi
                     payload = attachment.payload
                     item.size = len(payload)
                     if catalog is not None and options.docx_tables and is_docx:
-                        count = catalog.read_docx(payload, source_name, mail.content_hash, attachment.index, item.name)
-                        item.table_status = f"표 {count}개" if count else "표 없음"
+                        try:
+                            count = catalog.read_docx(payload, source_name, mail.content_hash, attachment.index, item.name)
+                            item.table_status = f"표 {count}개" if count else "표 없음"
+                        except Exception as exc:
+                            item.error = f"Word 표: {type(exc).__name__}: {exc}"
+                            item.table_status = "읽기 실패"
+                            logger.exception("DOCX TABLE ERROR: %s / %s", source_name, item.name)
                     if options.save_attachments:
                         saved = spool / f"mail_{index:06d}" / f"attachment_{attachment.index:06d}.bin"
                         saved.parent.mkdir(parents=True, exist_ok=True)
@@ -94,9 +99,9 @@ def analyze(source: Path, options: ProcessingOptions, spool: Path, logger: loggi
                     if options.extract_text:
                         item.text, item.text_status = text.extract_content(attachment.name, payload)
                         if item.text_status.startswith("read-error:"):
-                            item.error = item.text_status
+                            item.error = "; ".join(filter(None, [item.error, item.text_status]))
                 except Exception as exc:
-                    item.error = f"{type(exc).__name__}: {exc}"
+                    item.error = "; ".join(filter(None, [item.error, f"{type(exc).__name__}: {exc}"]))
                     item.table_status = "읽기 실패" if options.extract_tables else "not requested"
                     logger.exception("ATTACHMENT ERROR: %s / %s", source_name, item.name)
                 if item.error:

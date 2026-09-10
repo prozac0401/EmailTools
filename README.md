@@ -1,14 +1,14 @@
-# EmailTools 2.1.1 · Windows Desktop
+# EmailTools 2.1.2 · Windows Desktop
 
 EML 목록, 첨부 정리와 표 분석을 하나의 Windows 앱에서 처리합니다.
-**run.bat을 더블클릭하면 내장 Python으로 독립된 데스크톱 창이 열립니다.**
+**run.bat을 더블클릭하면 내장 python.exe로 데스크톱 앱과 콘솔 창이 함께 열립니다.**
 기본 실행은 브라우저·웹 서버·시스템 Python·pip 없이 동작합니다.
 
 ![Windows 앱](docs/desktop-images/01-start.png)
 
 ## 시작하기
 
-1. [포터블 ZIP](packages/EmailTools_v2.1.1_portable.zip)을 모두 압축 해제합니다.
+1. [포터블 ZIP](packages/EmailTools_v2.1.2_portable.zip)을 모두 압축 해제합니다.
 2. 프로그램 폴더의 **run.bat**을 실행합니다.
 3. 작업을 고르고 EML 파일·폴더를 선택합니다.
 4. **목록 만들기 / 표까지 분석하기**를 누릅니다.

@@ -1,5 +1,25 @@
 # 검증 방법
 
+## 2.1.2 · python.exe 실행
+
+사용자 요청에 따라 기본 BAT 실행과 배포 검증에 `runtime/python/python.exe`를 사용한다.
+`run.bat --desktop-smoke .desktop-test/python-exe-launch/ui` 실행에서 `[Runtime]` 경로와
+Windows Qt UI 시나리오 7개 통과를 확인했다. 아래 v2.1.1의 pythonw 검증은 당시 릴리즈 기록이다.
+
+배포 ZIP을 독립된 경로에 압축 해제하여 BAT·CLI·UI와 실제 저장을 확인한다.
+내장 `python.exe`에서 데스크톱·표 추출 호환성 회귀 27개를 실행하고 실행 파일 경로,
+표준 출력/오류 스트림과 앱 버전도 검사한 뒤 배포 ZIP을 확정한다.
+
+## 2.1.2 · 표 추출 호환성 수정
+
+v2.1.1 게시 후 `test_parsing_compat.py`로 같은 합성 EML을 기존 추출 경로와
+Windows 앱 추출 경로에 각각 전달해 비교했다. Word 셀의 콘텐츠 컨트롤 안에 있는
+항목 누락, Word 줄바꿈·탭 손실과 필드 명령 혼입, HTML 문단·목록 경계 손실,
+Word 표 오류가 첨부 원본 저장까지 막는 문제를 수정 전 재현하고 수정 후 검사한다.
+중첩 Word 표의 항목을 바깥 셀에 중복 귀속하지 않는지도 확인한다.
+수정 후 전체 Python 테스트 **78개**, Windows Qt UI 시나리오 **7개**가 통과했다.
+이 검증은 사용자가 보고한 실제 EML의 원인 확정을 뜻하지 않는다.
+
 ## 2.1.1 Windows 앱 · 2026-09-10
 
 기존 회귀를 포함한 Python 테스트 **72개 통과**. Windows Qt smoke 검사 **7개 시나리오 통과**.

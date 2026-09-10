@@ -71,32 +71,38 @@ def verify_package(archive_path: Path) -> None:
             creationflags=subprocess.CREATE_NO_WINDOW)
         if result.returncode:
             raise RuntimeError(f"배포본 네이티브 UI 검사 실패:\n{result.stdout}\n{result.stderr}")
+        if f'[Runtime] "{program / "runtime/python/python.exe"}"' not in result.stdout:
+            raise RuntimeError("배포본 BAT가 지정한 python.exe를 사용하지 않았습니다.")
         report = json.loads((smoke / "smoke-report.json").read_text(encoding="utf-8"))
         if report["error"] or len(report["checks"]) < 7:
             raise RuntimeError("배포본 UI 검증 보고서 실패")
-        # Exercise the actual no-console runtime: GUI callback errors must not
-        # disappear just because pythonw has no stdout/stderr.
+        # Exercise the python.exe runtime used by the desktop BAT launcher.
         native_report = temporary / "desktop-regressions.json"
         script = f"""
 import io, json, sys, unittest
 from pathlib import Path
 sys.path.insert(0, {str(program)!r})
 stream = io.StringIO()
-suite = unittest.defaultTestLoader.discover({str(program / 'tests')!r}, pattern='test_desktop_*.py')
+suite = unittest.TestSuite([
+    unittest.defaultTestLoader.discover({str(program / 'tests')!r}, pattern=pattern)
+    for pattern in ('test_desktop_*.py', 'test_parsing_compat.py')])
 result = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
 Path({str(native_report)!r}).write_text(json.dumps(dict(
     success=result.wasSuccessful(), tests=result.testsRun, output=stream.getvalue(),
-    no_console=sys.stdout is None and sys.stderr is None)), encoding='utf-8')
+    executable=sys.executable, version=__import__('emailtools').__version__,
+    console_streams=sys.stdout is not None and sys.stderr is not None)), encoding='utf-8')
 sys.exit(0 if result.wasSuccessful() else 1)
 """
-        result = subprocess.run([str(program / "runtime/python/pythonw.exe"), "-X", "utf8", "-c", script],
-            cwd=temporary, timeout=120, creationflags=subprocess.CREATE_NO_WINDOW)
+        result = subprocess.run([str(program / "runtime/python/python.exe"), "-X", "utf8", "-c", script],
+            cwd=temporary, timeout=120, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
         if not native_report.is_file():
-            raise RuntimeError("배포본 pythonw 검사 보고서가 생성되지 않았습니다.")
+            raise RuntimeError("배포본 python.exe 검사 보고서가 생성되지 않았습니다.")
         report = json.loads(native_report.read_text(encoding="utf-8"))
-        if result.returncode or not report["success"] or report["tests"] < 21 or not report["no_console"]:
-            raise RuntimeError(f"배포본 pythonw 회귀 검사 실패:\n{report}")
-        print(f"Verified extracted runtime: CLI, 7 UI scenarios, {report['tests']} pythonw regressions", flush=True)
+        if (result.returncode or not report["success"] or report["tests"] < 27 or not report["console_streams"]
+                or report["version"] != __version__
+                or Path(report["executable"]).resolve() != (program / "runtime/python/python.exe").resolve()):
+            raise RuntimeError(f"배포본 python.exe 회귀 검사 실패:\n{report}")
+        print(f"Verified extracted runtime: CLI, 7 UI scenarios, {report['tests']} python.exe regressions", flush=True)
 
 
 def main() -> int:

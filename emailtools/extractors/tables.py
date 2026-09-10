@@ -212,9 +212,21 @@ WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 WORD_NAMESPACES = {"w": WORD_NS}
 
 
-def _docx_cell_text(cell: ET.Element) -> str:
+def _docx_cell_text(cell: ET.Element, *, include_nested_tables: bool = True) -> str:
+    def owned_paragraphs(element):
+        # Word content controls and custom XML may wrap a cell's paragraphs.
+        # Inner table cells have their own provenance in the native catalog.
+        for child in element:
+            if child.tag == f"{{{WORD_NS}}}tbl":
+                continue
+            if child.tag == f"{{{WORD_NS}}}p":
+                yield child
+            else:
+                yield from owned_paragraphs(child)
+
     paragraphs: list[str] = []
-    for paragraph in cell.findall(".//w:p", WORD_NAMESPACES):
+    elements = cell.findall(".//w:p", WORD_NAMESPACES) if include_nested_tables else owned_paragraphs(cell)
+    for paragraph in elements:
         parts: list[str] = []
         for element in paragraph.iter():
             local = element.tag.rsplit("}", 1)[-1]

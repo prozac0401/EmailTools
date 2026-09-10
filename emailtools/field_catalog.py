@@ -104,7 +104,7 @@ class SourceHTMLParser(HTMLParser):
                 for r in range(row, row + cell.rowspan):
                     for c in range(column, column + cell.colspan):
                         table["occupied"].add((r, c))
-            elif tag in ("br", "p", "div") and table["cell"]:
+            elif tag == "br" and table["cell"]:
                 table["cell"].text += "\n"
 
     def handle_endtag(self, tag):
@@ -118,6 +118,8 @@ class SourceHTMLParser(HTMLParser):
             self.stack[-1]["cell"] = None
         elif tag == "thead":
             self.stack[-1]["head"] = False
+        elif tag in ("p", "div", "li") and self.stack[-1]["cell"]:
+            self.stack[-1]["cell"].text += "\n"
 
     def handle_data(self, value):
         if not self.skip and self.stack and self.stack[-1]["cell"]:
@@ -186,8 +188,9 @@ class FieldCatalog:
                 c = int(offset.get(f"{{{core.WORD_NS}}}val", "0")) if offset is not None else 0
                 header = row.find("./w:trPr/w:tblHeader", ns) is not None
                 for cell in row.findall("./w:tc", ns):
-                    # Only direct paragraphs belong to this physical cell. Inner tables own theirs.
-                    text = "\n".join("".join(p.itertext()) for p in cell.findall("./w:p", ns))
+                    # Reuse existing Word text semantics (content controls,
+                    # breaks, tabs, displayed field values), excluding inner tables.
+                    text = core._docx_cell_text(cell, include_nested_tables=False)
                     span = cell.find("./w:tcPr/w:gridSpan", ns)
                     width = max(1, min(1000, int(span.get(f"{{{core.WORD_NS}}}val", "1")))) if span is not None else 1
                     merge = cell.find("./w:tcPr/w:vMerge", ns)
