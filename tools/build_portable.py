@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -70,10 +71,32 @@ def verify_package(archive_path: Path) -> None:
             creationflags=subprocess.CREATE_NO_WINDOW)
         if result.returncode:
             raise RuntimeError(f"배포본 네이티브 UI 검사 실패:\n{result.stdout}\n{result.stderr}")
-        import json
         report = json.loads((smoke / "smoke-report.json").read_text(encoding="utf-8"))
-        if report["error"] or len(report["checks"]) < 6:
+        if report["error"] or len(report["checks"]) < 7:
             raise RuntimeError("배포본 UI 검증 보고서 실패")
+        # Exercise the actual no-console runtime: GUI callback errors must not
+        # disappear just because pythonw has no stdout/stderr.
+        native_report = temporary / "desktop-regressions.json"
+        script = f"""
+import io, json, sys, unittest
+from pathlib import Path
+sys.path.insert(0, {str(program)!r})
+stream = io.StringIO()
+suite = unittest.defaultTestLoader.discover({str(program / 'tests')!r}, pattern='test_desktop_*.py')
+result = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
+Path({str(native_report)!r}).write_text(json.dumps(dict(
+    success=result.wasSuccessful(), tests=result.testsRun, output=stream.getvalue(),
+    no_console=sys.stdout is None and sys.stderr is None)), encoding='utf-8')
+sys.exit(0 if result.wasSuccessful() else 1)
+"""
+        result = subprocess.run([str(program / "runtime/python/pythonw.exe"), "-X", "utf8", "-c", script],
+            cwd=temporary, timeout=120, creationflags=subprocess.CREATE_NO_WINDOW)
+        if not native_report.is_file():
+            raise RuntimeError("배포본 pythonw 검사 보고서가 생성되지 않았습니다.")
+        report = json.loads(native_report.read_text(encoding="utf-8"))
+        if result.returncode or not report["success"] or report["tests"] < 21 or not report["no_console"]:
+            raise RuntimeError(f"배포본 pythonw 회귀 검사 실패:\n{report}")
+        print(f"Verified extracted runtime: CLI, 7 UI scenarios, {report['tests']} pythonw regressions", flush=True)
 
 
 def main() -> int:

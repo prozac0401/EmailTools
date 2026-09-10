@@ -38,8 +38,8 @@ def run_smoke(app, window, output: Path):
         assert all(not m.body for m in window.result.mails)
         assert all(a.size is None for m in window.result.mails for a in m.attachments)
         assert window.tabs.count() == 1
-        report["checks"].append("List mode: no body/payload extraction, conditional tabs")
-        window.show_page(1)
+        assert window.stack.currentIndex() == 1 and window.mail_table.isVisible()
+        report["checks"].append("List mode: automatic result display, no body/payload extraction, conditional tabs")
         capture("02-mail-list.png")
         window.prepare_export()
         window.output_path.setText(str(output / "list-results"))
@@ -55,7 +55,7 @@ def run_smoke(app, window, output: Path):
         assert window.tabs.count() == 4
         assert len(window.columns) == 2
         assert window.result.catalog.query()["counts"]["common"] >= 4
-        window.show_page(1)
+        assert window.stack.currentIndex() == 1 and window.candidates.isVisible()
         # Drive the Qt drag event contract, including its MIME and pixmap, without
         # depending on an external desktop automation service or OS pointer.
         source_list = window.candidates

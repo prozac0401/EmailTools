@@ -1,4 +1,4 @@
-# EmailTools 2.1 · Windows Desktop
+# EmailTools 2.1.1 · Windows Desktop
 
 EML 목록, 첨부 정리와 표 분석을 하나의 Windows 앱에서 처리합니다.
 **run.bat을 더블클릭하면 내장 Python으로 독립된 데스크톱 창이 열립니다.**
@@ -8,11 +8,11 @@ EML 목록, 첨부 정리와 표 분석을 하나의 Windows 앱에서 처리합
 
 ## 시작하기
 
-1. [포터블 ZIP](packages/EmailTools_v2.1.0_portable.zip)을 모두 압축 해제합니다.
+1. [포터블 ZIP](packages/EmailTools_v2.1.1_portable.zip)을 모두 압축 해제합니다.
 2. 프로그램 폴더의 **run.bat**을 실행합니다.
 3. 작업을 고르고 EML 파일·폴더를 선택합니다.
 4. **목록 만들기 / 표까지 분석하기**를 누릅니다.
-5. 결과 검토 → 저장 구성 확인 → 결과 저장 순서로 진행합니다.
+5. 분석 완료 후 자동으로 열린 결과 검토 화면에서 저장 구성 확인 → 결과 저장 순서로 진행합니다.
 
 Windows 10/11 x64용입니다. 배포본에는 Python 3.13.15 Embedded와 PySide6 Essentials 6.10.2를 포함합니다.
 기본 글꼴은 본문·표 13px, 입력 14px, 구역 제목 16px, 화면 제목 22px입니다.

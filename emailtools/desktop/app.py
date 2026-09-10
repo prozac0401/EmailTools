@@ -4,17 +4,20 @@ import argparse
 import copy
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 import os
+import re
 import shutil
 import sys
 import tempfile
 import time
+import traceback
 import uuid
 from dataclasses import replace
 from io import StringIO
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal, QThread, QTimer, QUrl, QSettings, QSize
+from PySide6.QtCore import Qt, Signal, Slot, QThread, QTimer, QUrl, QSettings, QSize
 from PySide6.QtGui import QDesktopServices, QFont, QShortcut, QKeySequence
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QGridLayout, QStackedWidget, QLineEdit, QFileDialog, QCheckBox,
@@ -36,6 +39,16 @@ LABELS = {"source_eml": "원본 파일", "subject": "메일 제목", "from": "�
 BASE_COLUMNS = [dict(id="base:source", source="source_eml", name="source_eml", value="", enabled=True, base=True),
                 dict(id="base:subject", source="subject", name="subject", value="", enabled=True, base=True)]
 FLAGS = {"common": "공통 후보", "rare": "드문 항목", "repeated": "반복 많음", "review": "구조 확인"}
+
+
+def parse_input_paths(text):
+    """Keep Windows backslashes/spaces, including Explorer's Copy as path list."""
+    text = text.strip()
+    if '"' in text:
+        if not re.fullmatch(r'\s*"[^"\r\n]+"(?:\s+"[^"\r\n]+")*\s*', text):
+            raise ValueError("경로의 따옴표를 확인해 주세요. 여러 경로는 각각 큰따옴표로 감싸 주세요.")
+        return re.findall(r'"([^"\r\n]+)"', text)
+    return [line.strip() for line in text.splitlines() if line.strip()]
 
 
 def label(text, name="", wrap=False):
@@ -80,7 +93,7 @@ def combo(entries):
 
 class Worker(QThread):
     completed = Signal(object)
-    failed = Signal(str)
+    failed = Signal(str, str)
     stopped = Signal()
     status = Signal(object)
 
@@ -94,7 +107,7 @@ class Worker(QThread):
         except InterruptedError:
             self.stopped.emit()
         except Exception as exc:
-            self.failed.emit(f"{type(exc).__name__}: {exc}")
+            self.failed.emit(f"{type(exc).__name__}: {exc}", traceback.format_exc())
         else:
             self.completed.emit(result)
 
@@ -112,6 +125,17 @@ class Window(QMainWindow):
         self.log = StringIO()
         self.log_handler = logging.StreamHandler(self.log)
         self.logger.addHandler(self.log_handler)
+        log_root = (Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir())) / "EmailTools" / "logs"
+                    if remember else self.root)
+        self.log_path = log_root / "desktop.log"
+        self.file_log_handler = None
+        try:
+            log_root.mkdir(parents=True, exist_ok=True)
+            self.file_log_handler = RotatingFileHandler(self.log_path, maxBytes=1_000_000, backupCount=2, encoding="utf-8")
+            self.file_log_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+            self.logger.addHandler(self.file_log_handler)
+        except OSError:
+            self.log_path = None
         self.settings = QSettings("EmailTools", "Desktop") if remember else None
         self.large = self.settings.value("large_text", False, type=bool) if self.settings else False
         self.sources = [str(Path(p)) for p in sources]
@@ -129,6 +153,9 @@ class Window(QMainWindow):
         self.close_pending = False
         self.busy = False
         self.task_kind = ""
+        self.task_succeeded = False
+        self.completion_callback = None
+        self.last_error = ""
         self.setStyleSheet(stylesheet(self.large))
         self._build()
         self.set_mode("list")
@@ -541,6 +568,9 @@ class Window(QMainWindow):
         row.addStretch()
         self.cancel_button = button("처리 중지", self.cancel_work)
         row.addWidget(self.cancel_button)
+        self.error_button = button("오류 상세 보기", self.show_task_error)
+        self.error_button.setVisible(False)
+        row.addWidget(self.error_button)
         body.addLayout(row)
         outer.addWidget(card)
         outer.addStretch(2)
@@ -673,17 +703,28 @@ class Window(QMainWindow):
 
     def accept_paths(self, paths):
         if self.busy:
-            return
-        invalid = [p for p in paths if not Path(p).is_dir() and Path(p).suffix.lower() != ".eml"]
-        if invalid:
-            self.notice("EML 파일 또는 폴더를 선택해 주세요.")
-            return
-        self.sources = list(dict.fromkeys(paths))
+            return False
+        normalized = []
+        try:
+            for value in paths:
+                path = Path(value).expanduser().resolve(strict=True)
+                if not path.is_dir() and not (path.is_file() and path.suffix.lower() == ".eml"):
+                    raise ValueError(f"EML 파일 또는 폴더를 선택해 주세요: {path.name}")
+                normalized.append(str(path))
+        except FileNotFoundError:
+            self.notice(f"파일 또는 폴더를 찾을 수 없습니다: {value}")
+            return False
+        except (OSError, ValueError) as exc:
+            self.notice(f"입력 경로를 확인해 주세요: {exc}")
+            return False
+        self.sources = list(dict.fromkeys(normalized))
         self.sync_input()
+        return True
 
     def sync_input(self):
         self.path_edit.setText(self.sources[0] if len(self.sources) == 1 else "")
         self.path_edit.setPlaceholderText(f"EML 파일 {len(self.sources)}개 선택됨" if len(self.sources) > 1 else "또는 EML 파일·폴더 경로를 입력하세요")
+        self.path_edit.setToolTip("\n".join(self.sources))
         if len(self.sources) == 1:
             self.input_label.setText(Path(self.sources[0]).name or self.sources[0])
         elif self.sources:
@@ -695,12 +736,25 @@ class Window(QMainWindow):
             self.footer_hint.setText("선택한 작업으로 분석을 시작할 수 있습니다." if self.sources else "EML 파일 또는 폴더를 선택해 주세요.")
 
     def path_typed(self, text):
-        self.sources = [text.strip().strip('"')] if text.strip() else []
+        try:
+            self.sources = parse_input_paths(text)
+        except ValueError:
+            self.sources = []
         self.primary.setEnabled(bool(self.sources))
 
     def path_changed(self):
-        if self.path_edit.text().strip():
-            self.accept_paths([self.path_edit.text().strip().strip('"')])
+        # Programmatic sync (including a multiple-file picker) is not a new edit.
+        if not self.path_edit.isModified():
+            return
+        try:
+            paths = parse_input_paths(self.path_edit.text())
+        except ValueError as exc:
+            self.notice(str(exc))
+        else:
+            if self.accept_paths(paths):
+                return
+        self.sources = []
+        self.primary.setEnabled(False)
 
     def pick_files(self):
         if not self.busy:
@@ -727,7 +781,7 @@ class Window(QMainWindow):
         self.footer_hint.setText(message)
 
     def start_analysis(self):
-        if not self.sources:
+        if not self.sources or not self.accept_paths(self.sources):
             return
         options = self.current_options()
         try:
@@ -747,19 +801,17 @@ class Window(QMainWindow):
                     shutil.rmtree(spool)
                 raise
         def complete(result):
-            previous_spool = self.active_spool
-            self.active_spool = spool
+            names = ("result", "analyzed_sources", "dataset", "last_folder", "undo_columns",
+                     "columns", "page_number", "preview_page")
+            previous = {name: getattr(self, name) for name in names}
             self.result = result
-            if previous_spool and previous_spool.exists() and previous_spool.resolve().parent == self.root.resolve():
-                shutil.rmtree(previous_spool)
             self.analyzed_sources = inputs
             self.dataset = uuid.uuid4().hex
             self.last_folder = None
-            self.refresh_output_links()
             self.undo_columns = None
             old_count = len(self.columns)
             if restore:
-                self.columns = [c for c in self.columns if c.get("base") or c.get("custom") or
+                self.columns = [copy.deepcopy(c) for c in self.columns if c.get("base") or c.get("custom") or
                                 (result.catalog and c["id"] in result.catalog.fields)]
                 for column in self.columns:
                     if result.catalog and column["id"] in result.catalog.fields:
@@ -767,7 +819,27 @@ class Window(QMainWindow):
             else:
                 self.columns = copy.deepcopy(BASE_COLUMNS)
             self.page_number = self.preview_page = 0
-            self.refresh_result()
+            try:
+                if not restore:
+                    self.reset_result_filters()
+                self.refresh_result()
+                self.refresh_output_links()
+            except Exception:
+                for name, value in previous.items():
+                    setattr(self, name, value)
+                if self.result:
+                    try:
+                        self.refresh_result()
+                        self.refresh_output_links()
+                    except Exception:
+                        self.logger.exception("이전 결과 화면 복원 실패")
+                else:
+                    self.tabs.clear()
+                self.clean_spool(spool)
+                raise
+            previous_spool = self.active_spool
+            self.active_spool = spool
+            self.clean_spool(previous_spool)
             self.finish_progress("분석 완료 · 일부 확인 필요" if result.warnings or result.failures else "분석 완료",
                 f"정상 {result.success}개 · 확인 {result.warnings}개 · 실패 {result.failures}개" +
                 (f" · 사라진 항목 {old_count - len(self.columns)}개 제외" if restore and old_count > len(self.columns) else ""))
@@ -775,10 +847,21 @@ class Window(QMainWindow):
         self.progress_steps.setText("파일 찾기  →  메일·표 읽기  →  항목 정리  →  결과 준비" if options.extract_tables else "파일 찾기  →  메일·첨부 준비  →  결과 준비")
         self.begin_work(operation, complete, "표 항목을 분석하고 있습니다" if options.extract_tables else "메일 목록을 만들고 있습니다")
 
+    def clean_spool(self, path):
+        if path and path.exists() and path.resolve().parent == self.root.resolve():
+            try:
+                shutil.rmtree(path)
+            except OSError:
+                self.logger.exception("임시 분석 파일 정리 실패")
+
     def begin_work(self, operation, complete, title):
         if self.worker is not None:
             return
         self.busy = True
+        self.task_succeeded = False
+        self.completion_callback = complete
+        self.last_error = ""
+        self.error_button.setVisible(False)
         self.started = time.monotonic()
         self.progress_title.setText(title)
         self.phase_label.setText("준비 중")
@@ -789,13 +872,24 @@ class Window(QMainWindow):
         self.cancel_button.setText("저장 중지" if self.task_kind == "save" else "처리 중지")
         self.worker = Worker(operation, self)
         self.worker.status.connect(self.on_progress)
-        self.worker.completed.connect(complete)
+        self.worker.completed.connect(self.work_completed)
         self.worker.failed.connect(self.work_failed)
         self.worker.stopped.connect(self.work_stopped)
         self.worker.finished.connect(self.worker_finished)
         self.show_page(3)
         self.timer.start()
         self.worker.start()
+
+    @Slot(object)
+    def work_completed(self, result):
+        # A QObject slot runs on the GUI thread and provides an explicit error
+        # boundary; exceptions in a raw Qt callback vanish under pythonw.exe.
+        try:
+            self.completion_callback(result)
+        except Exception as exc:
+            self.work_failed(f"결과를 표시하지 못했습니다: {type(exc).__name__}: {exc}", traceback.format_exc())
+        else:
+            self.task_succeeded = True
 
     def on_progress(self, status):
         self.phase_label.setText(status["phase"])
@@ -833,13 +927,22 @@ class Window(QMainWindow):
         self.progress_detail.setText(description)
         self.current_file.setText("")
 
-    def work_failed(self, error):
+    @Slot(str, str)
+    def work_failed(self, error, details=""):
+        self.task_succeeded = False
+        self.last_error = details or error
+        self.logger.error("%s\n%s", error, details)
+        self.error_button.setVisible(True)
         self.progress_title.setText("작업을 완료하지 못했습니다")
         self.phase_label.setText("실패 · 다시 시도할 수 있습니다")
         self.progress_detail.setText(error)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
         self.current_file.setText("이전 분석 결과와 선택한 열은 유지됩니다." if self.result else "입력 경로와 파일을 확인해 주세요.")
+
+    def show_task_error(self):
+        location = f"오류 기록: {self.log_path}\n\n" if self.log_path else ""
+        self.text_dialog("작업 오류 상세", location + self.last_error)
 
     def work_stopped(self):
         self.progress_title.setText("작업이 중지되었습니다")
@@ -855,6 +958,7 @@ class Window(QMainWindow):
         if worker:
             worker.deleteLater()
         self.busy = False
+        self.completion_callback = None
         self.timer.stop()
         self.cancel_button.setEnabled(False)
         self.primary.setVisible(True)
@@ -864,6 +968,22 @@ class Window(QMainWindow):
             item.setEnabled(i == 0 or self.result is not None)
         if self.close_pending:
             self.close()
+        elif self.task_succeeded and self.task_kind == "analysis":
+            self.show_page(1)
+            self.statusBar().showMessage("분석 완료 · " + self.progress_detail.text())
+
+    def reset_result_filters(self):
+        for control in (self.mail_search, self.attachment_search, self.field_search):
+            control.blockSignals(True)
+            control.clear()
+            control.blockSignals(False)
+        for control in (self.mail_status, self.attachment_status, self.source_scope, self.category, self.field_sort):
+            control.blockSignals(True)
+            control.setCurrentIndex(0)
+            control.blockSignals(False)
+        self.search_values.blockSignals(True)
+        self.search_values.setChecked(False)
+        self.search_values.blockSignals(False)
 
     def refresh_result(self):
         result = self.result
@@ -948,7 +1068,13 @@ class Window(QMainWindow):
         counts = data["counts"]
         self.field_count.setText(f"{self.page_number + 1} 페이지 · 공통 {counts['common']} · 드문 항목 {counts['rare']} · 구조 확인 {counts['review']}")
         self.empty_candidates.setVisible(not fields)
-        self.empty_candidates.setText("조건에 맞는 남은 후보가 없습니다. 조건을 초기화하거나 선택한 열을 확인하세요.")
+        if not catalog.tables:
+            message = "분석 대상에서 표를 찾지 못했습니다. ‘메일 목록’에서 읽기 상태를 확인하세요. 표 분석 대상은 메일 HTML 본문과 Word 첨부입니다."
+        elif not catalog.fields:
+            message = "표는 있지만 추출할 항목/값 쌍을 찾지 못했습니다. ‘원본 표’에서 구조를 확인하세요."
+        else:
+            message = "조건에 맞는 남은 후보가 없습니다. 조건을 초기화하거나 선택한 열을 확인하세요."
+        self.empty_candidates.setText(message)
 
     def filters_changed(self):
         self.page_number = 0
@@ -1369,6 +1495,8 @@ class Window(QMainWindow):
             event.ignore()
             return
         self.log_handler.close()
+        if self.file_log_handler:
+            self.file_log_handler.close()
         self.temp.cleanup()
         event.accept()
 

@@ -64,12 +64,21 @@ class DropFrame(QFrame):
         self.setObjectName("DropZone")
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls() and all(u.isLocalFile() for u in event.mimeData().urls()):
+        self.dragMoveEvent(event)
+
+    def dragMoveEvent(self, event):
+        # QFrame's default move handler ignores the drag, so Windows stops
+        # offering a drop even after dragEnterEvent accepted it.
+        urls = event.mimeData().urls()
+        if urls and all(u.isLocalFile() for u in urls):
             event.acceptProposedAction()
+        else:
+            event.ignore()
 
     def dropEvent(self, event):
-        self.pathsDropped.emit([u.toLocalFile() for u in event.mimeData().urls()])
-        event.acceptProposedAction()
+        self.dragMoveEvent(event)
+        if event.isAccepted():
+            self.pathsDropped.emit([u.toLocalFile() for u in event.mimeData().urls()])
 
 
 class ChipDelegate(QStyledItemDelegate):
